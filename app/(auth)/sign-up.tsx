@@ -1,13 +1,12 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, Image, TouchableOpacity, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Link, useRouter, type Href } from "expo-router";
-import { useAuth, useSignUp } from '@clerk/expo';
-import ReactNativeModal from "react-native-modal";
-import { images } from "@/constants";
-import InputFields from "@/components/InputFields";
 import CustomButton from "@/components/CustomButton";
+import InputFields from "@/components/InputFields";
 import OAuth from "@/components/OAuth";
+import { images } from "@/constants";
+import { useAuth, useSignUp } from '@clerk/expo';
+import { Link, useRouter, type Href } from "expo-router";
+import React, { useState } from "react";
+import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const SignUp = () => {
   // Clerk Hooks
@@ -22,7 +21,6 @@ const SignUp = () => {
   
   // Verification States
   const [pendingVerification, setPendingVerification] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [code, setCode] = useState("");
 
   // Prevent rendering if already authenticated
@@ -42,7 +40,6 @@ const SignUp = () => {
       });
 
       if (error) {
-        console.error(JSON.stringify(error, null, 2));
         Alert.alert("Error", "Failed to sign up. Please check your details.");
         return;
       }
@@ -52,7 +49,6 @@ const SignUp = () => {
       setPendingVerification(true);
       
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
       Alert.alert("Sign Up Error", err.errors?.[0]?.longMessage || "Something went wrong.");
     }
   };
@@ -68,15 +64,22 @@ const SignUp = () => {
 
       if (signUp.status === 'complete') {
         await signUp.finalize({
-          navigate: () => {},
+          navigate: ({ session, decorateUrl }) => {
+            if (session?.currentTask) {
+              return;
+            }
+            const url = decorateUrl('/');
+            if (url.startsWith('http')) {
+              window.location.href = url;
+            } else {
+              router.push(url as Href);
+            }
+          },
         });
-
-        setShowSuccessModal(true);
       } else {
-        console.error('Sign-up attempt not complete:', signUp);
+        
       }
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
       Alert.alert("Verification Error", err.errors?.[0]?.longMessage || "Invalid code.");
     }
   };
@@ -198,25 +201,6 @@ const SignUp = () => {
           {/* Fallback Clerk Captcha View (Required for Clerk bot protection) */}
           <View nativeID="clerk-captcha" />
         </View>
-        <ReactNativeModal isVisible={showSuccessModal}>
-          <View className="bg-white px-7 py-9 rounded-2xl min-h-[300px]">
-            <Image
-              source={images.check}
-              className="w-[110px] h-[110px] mx-auto my-5"
-            />
-            <Text className="text-3xl font-JakartaBold text-center">
-              Verified
-            </Text>
-            <Text className="text-base text-gray-400 font-Jakarta text-center mt-2">
-              You have successfully verified your account.
-            </Text>
-            <CustomButton
-              title="Browse Home"
-              onPress={() => router.push(`/(root)/(tabs)/home`)}
-              className="mt-5"
-            />
-          </View>
-        </ReactNativeModal>
       </SafeAreaView>
     </ScrollView>
   );

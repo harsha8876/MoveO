@@ -5,6 +5,7 @@ import {
   ScrollView,
   Image,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { type Href, Link, useRouter } from "expo-router";
@@ -23,40 +24,46 @@ const SignIn = () => {
   const [code, setCode] = useState("");
 
   const handleSubmit = async () => {
-    const { error } = await signIn.password({
-      emailAddress,
-      password,
-    });
-
-    if (error) {
-      console.error(JSON.stringify(error, null, 2));
-      return;
-    }
-
-    if (signIn.status === "complete") {
-      await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          if (session?.currentTask) {
-            console.log(session.currentTask);
-            return;
-          }
-
-          const url = decorateUrl("/");
-          router.push(url as Href);
-        },
+    try {
+      const { error } = await signIn.password({
+        emailAddress,
+        password,
       });
-    } else if (signIn.status === "needs_second_factor") {
-      console.log("Second factor authentication is required.");
-    } else if (signIn.status === "needs_client_trust") {
-      const emailCodeFactor = signIn.supportedSecondFactors.find(
-        (factor) => factor.strategy === "email_code"
-      );
 
-      if (emailCodeFactor) {
-        await signIn.mfa.sendEmailCode();
+      if (error) {
+
+        const message =
+          (error as any)?.errors?.[0]?.longMessage ||
+          (error as any)?.errors?.[0]?.message ||
+          "Invalid email or password.";
+
+        Alert.alert("Sign In Error", message);
+        return;
       }
-    } else {
-      console.error("Sign-in attempt not complete:", signIn);
+
+      if (signIn.status === "complete") {
+        await signIn.finalize({
+          navigate: ({ session, decorateUrl }) => {
+            if (session?.currentTask) return;
+
+            const url = decorateUrl("/");
+            router.push(url as Href);
+          },
+        });
+      } else if (signIn.status === "needs_second_factor") {
+        console.log("Second factor authentication is required.");
+      } else if (signIn.status === "needs_client_trust") {
+        const emailCodeFactor = signIn.supportedSecondFactors.find(
+          (factor) => factor.strategy === "email_code"
+        );
+
+        if (emailCodeFactor) {
+          await signIn.mfa.sendEmailCode();
+        }
+      } else {
+      }
+    } catch (err) {
+      Alert.alert("Error", "Something went wrong.");
     }
   };
 
@@ -76,7 +83,6 @@ const SignIn = () => {
         },
       });
     } else {
-      console.error("Sign-in attempt not complete:", signIn);
     }
   };
 

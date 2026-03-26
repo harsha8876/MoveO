@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 const chat = () => {
     return(
         <SafeAreaView>
-            <Text> Home of our app</Text>
+            <Text> chat of our app</Text>
         </SafeAreaView>
     );
 }
