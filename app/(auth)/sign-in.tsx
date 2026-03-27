@@ -90,7 +90,7 @@ const SignIn = () => {
 
   return (
     <ScrollView className="flex-1 bg-white">
-      <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 bg-white">
         <View className="relative w-full h-[250px]">
           <Image
             source={images.signUpCar}
@@ -209,7 +209,7 @@ const SignIn = () => {
             </Link>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     </ScrollView>
   );
 };

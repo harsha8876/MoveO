@@ -2,12 +2,11 @@ import CustomButton from "@/components/CustomButton";
 import InputFields from "@/components/InputFields";
 import OAuth from "@/components/OAuth";
 import { images } from "@/constants";
+import { fetchAPI } from "@/lib/fetch";
 import { useAuth, useSignUp } from '@clerk/expo';
 import { Link, useRouter, type Href } from "expo-router";
 import React, { useState } from "react";
 import { Alert, Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
 const SignUp = () => {
   // Clerk Hooks
   const { signUp, errors, fetchStatus } = useSignUp();
@@ -63,6 +62,14 @@ const SignUp = () => {
       });
 
       if (signUp.status === 'complete') {
+      await fetchAPI('/(api)/user', {
+        method: 'POST',
+        body: JSON.stringify({
+          name,
+          email,
+          clerkId: signUp.createdUserId,
+        }),
+      });
         await signUp.finalize({
           navigate: ({ session, decorateUrl }) => {
             if (session?.currentTask) {
@@ -86,7 +93,7 @@ const SignUp = () => {
 
   return (
     <ScrollView className="flex-1 bg-white">
-      <SafeAreaView className="flex-1 bg-white">
+      <View className="flex-1 bg-white ">
         <View className="relative w-full h-[250px]">
           <Image
             source={images.signUpCar}
@@ -201,7 +208,7 @@ const SignUp = () => {
           {/* Fallback Clerk Captcha View (Required for Clerk bot protection) */}
           <View nativeID="clerk-captcha" />
         </View>
-      </SafeAreaView>
+      </View>
     </ScrollView>
   );
 };
