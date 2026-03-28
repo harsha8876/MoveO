@@ -11,9 +11,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-import GoogleTextInput from "../../../components/GoogleTextInput";
-import Map from "../../../components/Map";
+import GoogleTextInput from "@/components/GoogleTextInput";
+import Map from "@/components/Map";
 import RideCard from "../../../components/RideCard";
 import {
   formatCurrency,
@@ -21,6 +20,7 @@ import {
   getShortAddress,
 } from "../../../lib/utils";
 import { router } from "expo-router";
+import { useLocationStore } from "@/store";
 
 const recentRides = [
   {
@@ -144,84 +144,52 @@ export default function HomePage() {
   const { signOut } = useClerk();
   const [isLocating, setIsLocating] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
-  const [currentLocation, setCurrentLocation] = useState<{
-    latitude: number;
-    longitude: number;
-    address: string;
-  } | null>(null);
-  const [destination, setDestination] = useState<{
-    latitude: number;
-    longitude: number;
-    address: string;
-  } | null>(null);
-  const emailPrefix =
-    user?.primaryEmailAddress?.emailAddress?.split("@")[0] || "traveler";
-  const firstName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+  const {
+    userAddress,
+    destinationAddress,
+    setUserLocation,
+    setDestinationLocation,
+  } = useLocationStore();
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadCurrentLocation = async () => {
+    const requestLocation = async () => {
       try {
         setIsLocating(true);
         setLocationError(null);
 
         const { status } = await Location.requestForegroundPermissionsAsync();
-
         if (status !== "granted") {
-          if (isMounted) {
-            setLocationError("Location permission denied");
-          }
+          setLocationError("Location permission denied");
           return;
         }
 
-        const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+        const location = await Location.getCurrentPositionAsync({});
+        const address = await Location.reverseGeocodeAsync({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
         });
 
-        const [place] = await Location.reverseGeocodeAsync({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-
-        if (!isMounted) return;
-
-        const address =
-          [
-            place?.name,
-            place?.street,
-            place?.city,
-            place?.region,
-            place?.country,
-          ]
-            .filter(Boolean)
-            .join(", ") || "Current location";
-
-        setCurrentLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          address,
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          address: `${address[0]?.name ?? "Current location"}, ${address[0]?.region ?? ""}`,
         });
       } catch {
-        if (isMounted) {
-          setLocationError("Unable to fetch current location");
-        }
+        setLocationError("Unable to fetch current location");
       } finally {
-        if (isMounted) {
-          setIsLocating(false);
-        }
+        setIsLocating(false);
       }
     };
 
-    loadCurrentLocation();
+    requestLocation();
+  }, [setUserLocation]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const emailPrefix =
+    user?.primaryEmailAddress?.emailAddress?.split("@")[0] || "traveler";
+  const firstName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#fffff]">
+    <SafeAreaView className="flex-1 bg-[#ffffff]">
       <FlatList
         data={recentRides.slice(0, 5)}
         keyExtractor={(item) => item.ride_id}
@@ -266,8 +234,8 @@ export default function HomePage() {
                     Current location
                   </Text>
                   <Text className="mt-2 text-2xl text-white font-JakartaBold">
-                    {currentLocation
-                      ? getShortAddress(currentLocation.address)
+                    {userAddress
+                      ? getShortAddress(userAddress)
                       : "Finding you..."}
                   </Text>
                   <Text className="mt-2 text-sm leading-6 text-[#F3F3F7] font-JakartaRegular">
@@ -293,11 +261,11 @@ export default function HomePage() {
               <View className="mt-5">
                 <GoogleTextInput
                   initialLocation={
-                    destination?.address ?? "Where do you want to go today?"
+                    destinationAddress ?? "Where do you want to go today?"
                   }
                   containerStyle="bg-[#D6D6E0] px-1 py-1"
                   textInputBackgroundColor="#D6D6E0"
-                  handlePress={(location) => setDestination(location)}
+                  handlePress={(location) => setDestinationLocation(location)}
                 />
               </View>
             </View>
@@ -311,7 +279,9 @@ export default function HomePage() {
                   </Text>
                 </View>
               ) : (
-                <Map />
+                <View className="h-52 overflow-hidden rounded-[28px]">
+                  <Map />
+                </View>
               )}
               <View className="mt-3 flex-row items-center justify-between px-1">
                 <View className="flex-1 pr-3">
@@ -319,17 +289,17 @@ export default function HomePage() {
                     Your location
                   </Text>
                   <Text className="mt-1 text-sm text-[#2F2F42] font-JakartaBold">
-                    {currentLocation?.address ?? locationError ?? "Unavailable"}
+                    {userAddress ?? locationError ?? "Unavailable"}
                   </Text>
                 </View>
 
-                {destination ? (
+                {destinationAddress ? (
                   <View className="flex-1">
                     <Text className="text-xs uppercase tracking-[1px] text-[#7A7F8C] font-JakartaMedium">
                       Destination
                     </Text>
                     <Text className="mt-1 text-sm text-[#2F2F42] font-JakartaBold">
-                      {getShortAddress(destination.address)}
+                      {getShortAddress(destinationAddress)}
                     </Text>
                   </View>
                 ) : null}
