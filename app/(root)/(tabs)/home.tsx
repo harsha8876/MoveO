@@ -151,6 +151,15 @@ export default function HomePage() {
     setDestinationLocation,
   } = useLocationStore();
 
+  const handleDestinationPress = (location: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  }) => {
+    setDestinationLocation(location);
+    router.push("/(root)/find-ride");
+  };
+
   useEffect(() => {
     const requestLocation = async () => {
       try {
@@ -265,7 +274,7 @@ export default function HomePage() {
                   }
                   containerStyle="bg-[#D6D6E0] px-1 py-1"
                   textInputBackgroundColor="#D6D6E0"
-                  handlePress={(location) => setDestinationLocation(location)}
+                  handlePress={handleDestinationPress}
                 />
               </View>
             </View>

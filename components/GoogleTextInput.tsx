@@ -4,7 +4,7 @@ import { GooglePlacesAutocomplete } from "react-native-google-places-autocomplet
 import { icons } from "@/constants";
 import { GoogleInputProps } from "@/types/type";
 
-const googlePlacesApiKey = process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
+const googlePlacesApiKey = process.env.EXPO_PUBLIC_GOOGLE_API_KEY?.trim();
 
 const GoogleTextInput = ({
   icon,
@@ -21,6 +21,9 @@ const GoogleTextInput = ({
         fetchDetails={true}
         placeholder="Search"
         debounce={200}
+        enablePoweredByContainer={false}
+        keyboardShouldPersistTaps="always"
+        keepResultsAfterBlur={true}
         styles={{
           textInputContainer: {
             alignItems: "center",
@@ -41,15 +44,22 @@ const GoogleTextInput = ({
             borderRadius: 200,
           },
           listView: {
-            backgroundColor: textInputBackgroundColor
-              ? textInputBackgroundColor
-              : "white",
-            position: "relative",
-            top: 0,
+            backgroundColor: textInputBackgroundColor || "#D6D6E0",
+            position: "absolute",
+            top: 50,
             width: "100%",
-            borderRadius: 10,
-            shadowColor: "#d4d4d4",
-            zIndex: 99,
+            borderRadius: 12,
+            zIndex: 999,
+            elevation: 5,
+          },
+          row: {
+            backgroundColor: textInputBackgroundColor || "#D6D6E0",
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+          },
+          separator: {
+            height: 1,
+            backgroundColor: "#B9B9C7",
           },
         }}
         onPress={(data, details = null) => {
@@ -60,7 +70,7 @@ const GoogleTextInput = ({
           });
         }}
         query={{
-          key: googlePlacesApiKey,
+          key: googlePlacesApiKey ?? "",
           language: "en",
         }}
         renderLeftButton={() => (

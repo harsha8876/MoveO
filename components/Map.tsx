@@ -2,8 +2,9 @@ import { icons } from "@/constants";
 import { calculateRegion, generateMarkersFromData } from "@/lib/map";
 import { useDriverStore, useLocationStore } from "@/store";
 import { MarkerData } from "@/types/type";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
+
 const drivers = [
   
     {
@@ -50,6 +51,8 @@ type MapProps = {
 };
 
 const Map = () => {
+  const mapRef = useRef<MapView>(null);
+  const hasFocusedUserLocation = useRef(false);
   const {
     userLongitude,
     userLatitude,
@@ -81,8 +84,29 @@ const Map = () => {
     }
   }, [drivers, userLatitude, userLongitude]);
 
+  useEffect(() => {
+    if (!mapRef.current || !userLatitude || !userLongitude) return;
+
+    if (!hasFocusedUserLocation.current) {
+      hasFocusedUserLocation.current = true;
+      mapRef.current.animateToRegion(
+        {
+          latitude: userLatitude,
+          longitude: userLongitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        350,
+      );
+      return;
+    }
+
+    mapRef.current.animateToRegion(region, 350);
+  }, [region, userLatitude, userLongitude]);
+
   return (
     <MapView
+      ref={mapRef}
       provider={PROVIDER_DEFAULT}
       className="w-full h-full rounded-2xl"
       style={{ width: "100%", height: "100%" }}
@@ -90,6 +114,8 @@ const Map = () => {
       showsUserLocation
       tintColor="black"
       mapType="mutedStandard"
+      userInterfaceStyle="light"
+      
     >
       {markers?.map((marker) => (
         <Marker
