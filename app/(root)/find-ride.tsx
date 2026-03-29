@@ -18,7 +18,7 @@ const FindRide = () => {
   return (
     <RideLayout title="Ride">
       {/* FROM */}
-      <View className="my-3">
+      <View className="my-3 z-20">
         <Text className="mb-3 text-lg font-JakartaSemiBold">From</Text>
 
         <GoogleTextInput
@@ -31,7 +31,7 @@ const FindRide = () => {
       </View>
 
       {/* TO */}
-      <View className="my-3">
+      <View className="my-3 z-10">
         <Text className="mb-3 text-lg font-JakartaSemiBold">To</Text>
 
         <GoogleTextInput
