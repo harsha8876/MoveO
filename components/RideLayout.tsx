@@ -44,7 +44,7 @@ export default function RideLayout({
           enablePanDownToClose={false}
           keyboardBehavior="extend"
           keyboardBlurBehavior="restore"
-          enableContentPanningGesture={false}
+          enableContentPanningGesture
         >
           <BottomSheetView style={{ padding: 20, paddingBottom: 40, flex: 1 }}>
             <View className="flex-1">{children}</View>

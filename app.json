@@ -26,10 +26,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      ["expo-router",
-      {
-        "origin": "https://moveo.com/"
-      }],
+      [
+        "expo-router",
+        {
+          "origin": "https://moveo.com/"
+        }
+      ],
       [
         "expo-splash-screen",
         {

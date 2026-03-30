@@ -1,6 +1,8 @@
 import { Driver, MarkerData } from "@/types/type";
 
-const directionsAPI = process.env.EXPO_PUBLIC_DIRECTIONS_API_KEY;
+const directionsAPI =
+  process.env.EXPO_PUBLIC_DIRECTIONS_API_KEY ||
+  process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
 export const generateMarkersFromData = ({
   data,
@@ -90,26 +92,35 @@ export const calculateDriverTimes = async ({
     !userLatitude ||
     !userLongitude ||
     !destinationLatitude ||
-    !destinationLongitude
+    !destinationLongitude ||
+    !directionsAPI
   )
-    return;
+    return markers;
 
   try {
+    const responseToDestination = await fetch(
+      `https://maps.googleapis.com/maps/api/directions/json?origin=${userLatitude},${userLongitude}&destination=${destinationLatitude},${destinationLongitude}&key=${directionsAPI}`,
+    );
+    const dataToDestination = await responseToDestination.json();
+    const destinationDuration =
+      dataToDestination?.routes?.[0]?.legs?.[0]?.duration?.value;
+
+    if (!destinationDuration) {
+      return markers;
+    }
+
     const timesPromises = markers.map(async (marker) => {
       const responseToUser = await fetch(
         `https://maps.googleapis.com/maps/api/directions/json?origin=${marker.latitude},${marker.longitude}&destination=${userLatitude},${userLongitude}&key=${directionsAPI}`,
       );
       const dataToUser = await responseToUser.json();
-      const timeToUser = dataToUser.routes[0].legs[0].duration.value; // Time in seconds
+      const timeToUser = dataToUser?.routes?.[0]?.legs?.[0]?.duration?.value;
 
-      const responseToDestination = await fetch(
-        `https://maps.googleapis.com/maps/api/directions/json?origin=${userLatitude},${userLongitude}&destination=${destinationLatitude},${destinationLongitude}&key=${directionsAPI}`,
-      );
-      const dataToDestination = await responseToDestination.json();
-      const timeToDestination =
-        dataToDestination.routes[0].legs[0].duration.value; // Time in seconds
+      if (!timeToUser) {
+        return marker;
+      }
 
-      const totalTime = (timeToUser + timeToDestination) / 60; // Total time in minutes
+      const totalTime = (timeToUser + destinationDuration) / 60; // Total time in minutes
       const price = (totalTime * 0.5).toFixed(2); // Calculate price based on time
 
       return { ...marker, time: totalTime, price };
@@ -118,5 +129,6 @@ export const calculateDriverTimes = async ({
     return await Promise.all(timesPromises);
   } catch (error) {
     console.error("Error calculating driver times:", error);
+    return markers;
   }
 };

@@ -4,7 +4,17 @@ export const fetchAPI = async (url: string, options?: RequestInit) => {
   try {
     const response = await fetch(url, options);
     if (!response.ok) {
-      new Error(`HTTP error! status: ${response.status}`);
+      const contentType = response.headers.get("content-type") ?? "";
+      const errorPayload = contentType.includes("application/json")
+        ? await response.json()
+        : await response.text();
+
+      const errorMessage =
+        typeof errorPayload === "string"
+          ? errorPayload
+          : errorPayload?.error || `HTTP error! status: ${response.status}`;
+
+      throw new Error(errorMessage);
     }
     return await response.json();
   } catch (error) {
