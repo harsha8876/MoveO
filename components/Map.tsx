@@ -7,19 +7,16 @@ import {
 } from "@/lib/map";
 import { useDriverStore, useLocationStore } from "@/store";
 import { Driver, MarkerData } from "@/types/type";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
-
-type MapProps = {
-  latitude?: number | null;
-  longitude?: number | null;
-};
+import MapViewDirections from "react-native-maps-directions";
 
 const Map = () => {
   const { data: drivers, loading, error } = useFetch<Driver[]>("/(api)/driver");
   const mapRef = useRef<MapView>(null);
   const hasFocusedUserLocation = useRef(false);
+  const lastCalculatedRouteKey = useRef<string | null>(null);
   const {
     userLongitude,
     userLatitude,
@@ -32,7 +29,6 @@ const Map = () => {
     selectedDriver,
     setDrivers,
   } = useDriverStore();
-  const [markers, setMarkers] = useState<MarkerData[]>([]);
 
   const getRandomDrivers = (driverList: Driver[]) => {
     const shuffledDrivers = [...driverList].sort(() => Math.random() - 0.5);
@@ -55,10 +51,7 @@ const Map = () => {
   useEffect(() => {
     if (!userLatitude || !userLongitude) return;
 
-    if (storedDrivers.length > 0) {
-      setMarkers(storedDrivers);
-      return;
-    }
+    if (storedDrivers.length > 0) return;
 
     if (!Array.isArray(drivers)) return;
 
@@ -69,31 +62,52 @@ const Map = () => {
       userLongitude,
     });
 
-    setMarkers(newMarkers);
     setDrivers(newMarkers);
   }, [drivers, storedDrivers, userLatitude, userLongitude, setDrivers]);
 
   useEffect(() => {
     if (
-      markers.length > 0 &&
+      storedDrivers.length > 0 &&
       destinationLatitude != null &&
       destinationLongitude != null
     ) {
+      const routeKey = JSON.stringify({
+        userLatitude,
+        userLongitude,
+        destinationLatitude,
+        destinationLongitude,
+        markers: storedDrivers.map((marker) => ({
+          id: marker.id,
+          latitude: marker.latitude,
+          longitude: marker.longitude,
+        })),
+      });
+
+      if (lastCalculatedRouteKey.current === routeKey) return;
+      lastCalculatedRouteKey.current = routeKey;
+
       calculateDriverTimes({
-        markers,
+        markers: storedDrivers,
         userLongitude,
         userLatitude,
         destinationLatitude,
         destinationLongitude,
       }).then((driversWithTimes) => {
         if (driversWithTimes) {
-          setMarkers(driversWithTimes as MarkerData[]);
+          const hasDriverUpdates = (driversWithTimes as MarkerData[]).some(
+            (driver, index) =>
+              driver.time !== storedDrivers[index]?.time ||
+              driver.price !== storedDrivers[index]?.price,
+          );
+
+          if (!hasDriverUpdates) return;
+
           setDrivers(driversWithTimes as MarkerData[]);
         }
       });
     }
   }, [
-    markers,
+    storedDrivers,
     destinationLatitude,
     destinationLongitude,
     userLongitude,
@@ -147,7 +161,7 @@ const Map = () => {
       mapType="mutedStandard"
       userInterfaceStyle="light"
     >
-      {markers?.map((marker) => (
+      {storedDrivers?.map((marker) => (
         <Marker
           key={marker.id}
           coordinate={{
@@ -160,6 +174,32 @@ const Map = () => {
           }
         />
       ))}
+      {destinationLatitude != null && destinationLongitude != null && (
+        <>
+          <Marker
+            key="destination"
+            coordinate={{
+              latitude: destinationLatitude,
+              longitude: destinationLongitude,
+            }}
+            title="Destination"
+            image={icons.pin}
+          />
+          <MapViewDirections
+            origin={{
+              latitude: userLatitude,
+              longitude: userLongitude,
+            }}
+            destination={{
+              latitude: destinationLatitude,
+              longitude: destinationLongitude,
+            }}
+            apikey={process.env.EXPO_PUBLIC_GOOGLE_API_KEY}
+            strokeColor="#0286FF"
+            strokeWidth={2}
+          />
+        </>
+      )}
     </MapView>
   );
 };

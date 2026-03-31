@@ -1,13 +1,12 @@
 import Payment from "@/components/Payment";
-import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import RideLayout from "@/components/RideLayout";
 import { icons } from "@/constants";
-import { formatTime } from "@/lib/utils";
+import { formatCurrency, formatTime } from "@/lib/utils";
 import { useDriverStore, useLocationStore } from "@/store";
 import { MarkerData } from "@/types/type";
 import { useUser } from "@clerk/expo";
-import { Image, Text, View } from "react-native";
 import { StripeProvider } from '@stripe/stripe-react-native';
+import { Image, Text, View } from "react-native";
 
 const BookRide = () => {
     const {user} = useUser();
@@ -25,13 +24,9 @@ const BookRide = () => {
        <StripeProvider
       publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY!}
       merchantIdentifier="merchant.moveo.com"
-      urlScheme="myapp"
+      urlScheme="moveo"
     >
         <RideLayout title="Book Ride">
-            <BottomSheetScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingBottom: 40 }}
-            >
                 <Text className="text-xl font-JakartaSemiBold mb-3">
                     Ride Information
                 </Text>
@@ -65,7 +60,7 @@ const BookRide = () => {
                     <View className="flex flex-row items-center justify-between w-full border-b border-white py-3">
                         <Text className="text-lg font-JakartaRegular text-[#46466B]">Ride Price</Text>
                         <Text className="text-lg font-JakartaSemiBold text-[#5D5D7D]">
-                            ₹{driverDetails?.price}
+                            {formatCurrency(driverDetails?.price)}
                         </Text>
                     </View>
 
@@ -107,7 +102,6 @@ const BookRide = () => {
                   driverId={driverDetails?.id}
                   rideTime={driverDetails?.time!}
                 />
-            </BottomSheetScrollView>
         </RideLayout>
       </StripeProvider>
     );

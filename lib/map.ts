@@ -4,6 +4,28 @@ const directionsAPI =
   process.env.EXPO_PUBLIC_DIRECTIONS_API_KEY ||
   process.env.EXPO_PUBLIC_GOOGLE_API_KEY;
 
+const calculateEstimatedFareInInr = ({
+  totalDistanceKm,
+  totalTimeMinutes,
+}: {
+  totalDistanceKm: number;
+  totalTimeMinutes: number;
+}) => {
+  const baseFare = 55;
+  const pickupCharge = 25;
+  const perKmRate = 14;
+  const perMinuteRate = 2;
+  const minimumFare = 99;
+
+  const estimatedFare =
+    baseFare +
+    pickupCharge +
+    totalDistanceKm * perKmRate +
+    totalTimeMinutes * perMinuteRate;
+
+  return Math.max(minimumFare, Math.ceil(estimatedFare / 10) * 10);
+};
+
 export const generateMarkersFromData = ({
   data,
   userLatitude,
@@ -104,6 +126,8 @@ export const calculateDriverTimes = async ({
     const dataToDestination = await responseToDestination.json();
     const destinationDuration =
       dataToDestination?.routes?.[0]?.legs?.[0]?.duration?.value;
+    const destinationDistance =
+      dataToDestination?.routes?.[0]?.legs?.[0]?.distance?.value ?? 0;
 
     if (!destinationDuration) {
       return markers;
@@ -115,13 +139,19 @@ export const calculateDriverTimes = async ({
       );
       const dataToUser = await responseToUser.json();
       const timeToUser = dataToUser?.routes?.[0]?.legs?.[0]?.duration?.value;
+      const distanceToUser =
+        dataToUser?.routes?.[0]?.legs?.[0]?.distance?.value ?? 0;
 
       if (!timeToUser) {
         return marker;
       }
 
-      const totalTime = (timeToUser + destinationDuration) / 60; // Total time in minutes
-      const price = (totalTime * 0.5).toFixed(2); // Calculate price based on time
+      const totalTime = (timeToUser + destinationDuration) / 60;
+      const totalDistanceKm = (distanceToUser + destinationDistance) / 1000;
+      const price = calculateEstimatedFareInInr({
+        totalDistanceKm,
+        totalTimeMinutes: totalTime,
+      }).toString();
 
       return { ...marker, time: totalTime, price };
     });

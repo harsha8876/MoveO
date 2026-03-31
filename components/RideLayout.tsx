@@ -1,5 +1,5 @@
 import { icons } from "@/constants";
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { router } from "expo-router";
 import React, { useMemo, useRef } from "react";
 import { Image, Text, TouchableOpacity, View } from "react-native";
@@ -44,11 +44,13 @@ export default function RideLayout({
           enablePanDownToClose={false}
           keyboardBehavior="extend"
           keyboardBlurBehavior="restore"
-          enableContentPanningGesture
         >
-          <BottomSheetView style={{ padding: 20, paddingBottom: 40, flex: 1 }}>
-            <View className="flex-1">{children}</View>
-          </BottomSheetView>
+          <BottomSheetScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}
+          >
+            {children}
+          </BottomSheetScrollView>
         </BottomSheet>
       </View>
     </GestureHandlerRootView>

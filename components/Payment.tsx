@@ -1,15 +1,36 @@
 import { useAuth } from "@clerk/expo";
 import { useStripe } from "@stripe/stripe-react-native";
 import { router } from "expo-router";
-import React, { useState } from "react";
-import { Alert, Image, Text, View } from "react-native";
-import { ReactNativeModal } from "react-native-modal";
+import React, { useRef, useState } from "react";
+import { Alert } from "react-native";
 
 import CustomButton from "@/components/CustomButton";
-import { images } from "@/constants";
+import SuccessModal from "@/components/SuccessModal";
 import { fetchAPI } from "@/lib/fetch";
 import { useLocationStore } from "@/store";
 import { PaymentProps } from "@/types/type";
+
+type PaymentSheetError = {
+  code?: string;
+  message?: string;
+  localizedMessage?: string;
+  declineCode?: string;
+  stripeErrorCode?: string;
+  type?: string;
+};
+
+const getPaymentSheetErrorMessage = (error: PaymentSheetError) => {
+  const message =
+    error.localizedMessage || error.message || "Unable to confirm payment.";
+  const details = [
+    error.code ? `Code: ${error.code}` : null,
+    error.stripeErrorCode ? `Stripe: ${error.stripeErrorCode}` : null,
+    error.declineCode ? `Decline: ${error.declineCode}` : null,
+    error.type ? `Type: ${error.type}` : null,
+  ].filter(Boolean);
+
+  return details.length > 0 ? `${message}\n\n${details.join("\n")}` : message;
+};
 
 const Payment = ({
   fullName,
@@ -27,135 +48,185 @@ const Payment = ({
     destinationAddress,
     destinationLongitude,
   } = useLocationStore();
-
   const { userId } = useAuth();
-  const [success, setSuccess] = useState<boolean>(false);
 
-  const openPaymentSheet = async () => {
-    await initializePaymentSheet();
+  const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const isPaymentFlowActive = useRef(false);
 
-    const { error } = await presentPaymentSheet();
+  const amountValue = Number(amount);
+  const amountInSmallestUnit = Math.round(amountValue * 100);
 
-    if (error) {
-      Alert.alert(`Error code: ${error.code}`, error.message);
-    } else {
-      setSuccess(true);
+  const createRide = async () => {
+    if (
+      !userAddress ||
+      !destinationAddress ||
+      userLatitude == null ||
+      userLongitude == null ||
+      destinationLatitude == null ||
+      destinationLongitude == null ||
+      !driverId ||
+      !userId
+    ) {
+      throw new Error("Missing required ride details.");
     }
+
+    await fetchAPI("/(api)/(ride)/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        origin_address: userAddress,
+        destination_address: destinationAddress,
+        origin_latitude: userLatitude,
+        origin_longitude: userLongitude,
+        destination_latitude: destinationLatitude,
+        destination_longitude: destinationLongitude,
+        ride_time: rideTime.toFixed(0),
+        fare_price: amountInSmallestUnit,
+        payment_status: "paid",
+        driver_id: driverId,
+        user_id: userId,
+      }),
+    });
   };
 
   const initializePaymentSheet = async () => {
-    const { error } = await initPaymentSheet({
-      merchantDisplayName: "Example, Inc.",
-      intentConfiguration: {
-        mode: {
-          amount: parseInt(amount) * 100,
-          currencyCode: "usd",
+    try {
+      const response = await fetchAPI("/(api)/(stripe)/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-        confirmHandler: async (
-          paymentMethod,
-          shouldSavePaymentMethod,
-          intentCreationCallback,
-        ) => {
-          const { paymentIntent, customer } = await fetchAPI(
-            "/(api)/(stripe)/create",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                name: fullName || email.split("@")[0],
-                email: email,
-                amount: amount,
-                paymentMethodId: paymentMethod.id,
-              }),
-            },
-          );
+        body: JSON.stringify({
+          name: fullName || (email ? email.split("@")[0] : "Moveo User"),
+          email,
+          amount: amountValue,
+        }),
+      });
 
-          if (paymentIntent.client_secret) {
-            const { result } = await fetchAPI("/(api)/(stripe)/pay", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                payment_method_id: paymentMethod.id,
-                payment_intent_id: paymentIntent.id,
-                customer_id: customer,
-                client_secret: paymentIntent.client_secret,
-              }),
-            });
+      if (response.error) {
+        Alert.alert(
+          "Payment setup failed",
+          response.details ||
+            response.error ||
+            "Unable to create payment sheet.",
+        );
+        return false;
+      }
 
-            if (result.client_secret) {
-              await fetchAPI("/(api)/ride/create", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  origin_address: userAddress,
-                  destination_address: destinationAddress,
-                  origin_latitude: userLatitude,
-                  origin_longitude: userLongitude,
-                  destination_latitude: destinationLatitude,
-                  destination_longitude: destinationLongitude,
-                  ride_time: rideTime.toFixed(0),
-                  fare_price: parseInt(amount) * 100,
-                  payment_status: "paid",
-                  driver_id: driverId,
-                  user_id: userId,
-                }),
-              });
+      const paymentIntentClientSecret =
+        response.paymentIntent?.client_secret ?? response.paymentIntent;
+      const customerId = response.customer?.id ?? response.customer;
+      const customerEphemeralKeySecret =
+        response.ephemeralKey?.secret ?? response.ephemeralKey;
 
-              intentCreationCallback({
-                clientSecret: result.client_secret,
-              });
-            }
-          }
+      if (
+        !paymentIntentClientSecret ||
+        !customerId ||
+        !customerEphemeralKeySecret
+      ) {
+        Alert.alert(
+          "Payment setup failed",
+          "Stripe did not return the required payment sheet details.",
+        );
+        return false;
+      }
+
+      const { error } = await initPaymentSheet({
+        merchantDisplayName: "Moveo",
+        customerId,
+        customerEphemeralKeySecret,
+        paymentIntentClientSecret,
+        defaultBillingDetails: {
+          name: fullName || (email ? email.split("@")[0] : "Moveo User"),
+          email,
         },
-      },
-      returnURL: "myapp://book-ride",
-    });
+        returnURL: "moveo://book-ride",
+      });
 
-    if (!error) {
-      // setLoading(true);
+      if (error) {
+        Alert.alert(
+          "Payment setup failed",
+          getPaymentSheetErrorMessage(error as PaymentSheetError),
+        );
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      Alert.alert(
+        "Payment setup failed",
+        error instanceof Error ? error.message : "Unable to prepare payment.",
+      );
+      return false;
+    }
+  };
+
+  const openPaymentSheet = async () => {
+    if (isPaymentFlowActive.current) return;
+
+    if (!Number.isFinite(amountValue) || amountInSmallestUnit <= 0) {
+      Alert.alert(
+        "Invalid amount",
+        "Please select a valid ride before paying.",
+      );
+      return;
+    }
+
+    try {
+      isPaymentFlowActive.current = true;
+      setIsLoading(true);
+
+      const isInitialized = await initializePaymentSheet();
+      if (!isInitialized) return;
+
+      const { error } = await presentPaymentSheet();
+
+      if (error) {
+        Alert.alert(
+          "Payment confirmation failed",
+          getPaymentSheetErrorMessage(error as PaymentSheetError),
+        );
+        return;
+      }
+
+      await createRide();
+      setSuccess(true);
+    } catch (error) {
+      Alert.alert(
+        "Payment failed",
+        error instanceof Error ? error.message : "Something went wrong.",
+      );
+    } finally {
+      isPaymentFlowActive.current = false;
+      setIsLoading(false);
     }
   };
 
   return (
     <>
       <CustomButton
-        title="Confirm Ride"
+        title={isLoading ? "Processing..." : "Confirm Ride"}
         className="my-10 bg-[#747490]"
         onPress={openPaymentSheet}
+        loading={isLoading}
+        disabled={isLoading}
       />
 
-      <ReactNativeModal
-        isVisible={success}
-        onBackdropPress={() => setSuccess(false)}
-      >
-        <View className="flex flex-col items-center justify-center bg-white p-7 rounded-2xl">
-          <Image source={images.check} className="w-28 h-28 mt-5" />
-
-          <Text className="text-2xl text-center font-JakartaBold mt-5">
-            Booking placed successfully
-          </Text>
-
-          <Text className="text-md text-general-200 font-JakartaRegular text-center mt-3">
-            Thank you for your booking. Your reservation has been successfully
-            placed. Please proceed with your trip.
-          </Text>
-
-          <CustomButton
-            title="Back Home"
-            onPress={() => {
-              setSuccess(false);
-              router.push("/(root)/(tabs)/home");
-            }}
-            className="mt-5"
-          />
-        </View>
-      </ReactNativeModal>
+      <SuccessModal
+        visible={success}
+        title="Booking placed successfully"
+        message="Thank you for your booking. Your reservation has been successfully placed. Please proceed with your trip."
+        buttonTitle="Go to Home"
+        buttonClassName="bg-[#747490]"
+        onClose={() => setSuccess(false)}
+        onConfirm={() => {
+          setSuccess(false);
+          router.replace("/(root)/(tabs)/home");
+        }}
+      />
     </>
   );
 };

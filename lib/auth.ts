@@ -28,6 +28,40 @@ export const tokenCache = {
   },
 };
 
+type OAuthFlowResult = {
+  createdSessionId: string | null;
+  setActive?: ((params: { session: string }) => Promise<void>) | undefined;
+  signUp?: {
+    createdUserId?: string | null;
+    emailAddress?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+  } | null;
+};
+
+export const syncOAuthUser = async (signUp: OAuthFlowResult["signUp"]) => {
+  const clerkId = signUp?.createdUserId;
+  const email = signUp?.emailAddress;
+  const fullName = `${signUp?.firstName ?? ""} ${signUp?.lastName ?? ""}`.trim();
+
+  if (!clerkId || !email) {
+    return;
+  }
+
+  try {
+    await fetchAPI("/(api)/user", {
+      method: "POST",
+      body: JSON.stringify({
+        name: fullName || email.split("@")[0],
+        email,
+        clerkId,
+      }),
+    });
+  } catch (error) {
+    console.warn("User profile sync failed after OAuth sign-in:", error);
+  }
+};
+
 export const googleOAuth = async (startOAuthFlow: any) => {
   try {
     const { createdSessionId, setActive, signUp } = await startOAuthFlow({
@@ -37,21 +71,7 @@ export const googleOAuth = async (startOAuthFlow: any) => {
     if (createdSessionId) {
       if (setActive) {
         await setActive({ session: createdSessionId });
-
-        if (signUp.createdUserId) {
-          try {
-            await fetchAPI("/(api)/user", {
-              method: "POST",
-              body: JSON.stringify({
-                name: `${signUp.firstName} ${signUp.lastName}`,
-                email: signUp.emailAddress,
-                clerkId: signUp.createdUserId,
-              }),
-            });
-          } catch (syncError) {
-            console.warn("User profile sync failed after Google sign-in:", syncError);
-          }
-        }
+        await syncOAuthUser(signUp);
 
         return {
           success: true,
