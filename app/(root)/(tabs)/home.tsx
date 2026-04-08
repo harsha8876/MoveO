@@ -29,6 +29,7 @@ export default function HomePage() {
   const [recentRides, setRecentRides] = useState<Ride[]>([]);
   const [isRidesLoading, setIsRidesLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(true);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const {
     userAddress,
@@ -171,7 +172,10 @@ export default function HomePage() {
               </TouchableOpacity>
             </View>
 
-            <View className="mb-6 rounded-[28px] bg-[#5D5D7D] px-5 py-5">
+            <View
+              className="mb-6 rounded-[28px] bg-[#5D5D7D] px-5 py-5"
+              style={{ zIndex: isSearchFocused ? 40 : 1 }}
+            >
               <View className="flex-row items-start justify-between">
                 <View className="flex-1 pr-4">
                   <Text className="text-sm text-[#D6D6E0] font-JakartaMedium">
@@ -202,20 +206,32 @@ export default function HomePage() {
                 </View>
               </View>
 
-              <View className="mt-5">
+              <View className="mt-5" style={{ zIndex: 50 }}>
                 <GoogleTextInput
                   initialLocation={
                     destinationAddress ?? "Where do you want to go today?"
                   }
                   containerStyle="bg-[#D6D6E0] px-1 py-1"
                   textInputBackgroundColor="#D6D6E0"
+                  onFocusChange={setIsSearchFocused}
                   handlePress={handleDestinationPress}
                 />
               </View>
             </View>
 
             <View className="mb-6">
-              {isLocating ? (
+              {isSearchFocused ? (
+                <View className="h-52 items-center justify-center rounded-[28px] bg-[#D6D6E0] px-6">
+                  <Ionicons name="search-outline" size={24} color="#5D5D7D" />
+                  <Text className="mt-3 text-center text-base text-[#2F2F42] font-JakartaBold">
+                    Search for a destination
+                  </Text>
+                  <Text className="mt-2 text-center text-sm leading-6 text-[#46466B] font-JakartaRegular">
+                    Keep typing to see place suggestions above. The map will
+                    come back once you leave the search field.
+                  </Text>
+                </View>
+              ) : isLocating ? (
                 <View className="h-52 items-center justify-center rounded-[28px] bg-[#D6D6E0]">
                   <ActivityIndicator size="small" color="#5D5D7D" />
                   <Text className="mt-3 text-sm text-[#46466B] font-JakartaMedium">

@@ -6,6 +6,7 @@ import { Alert } from "react-native";
 
 import CustomButton from "@/components/CustomButton";
 import SuccessModal from "@/components/SuccessModal";
+import { createRideChatRoom } from "@/lib/chat";
 import { fetchAPI } from "@/lib/fetch";
 import { useLocationStore } from "@/store";
 import { PaymentProps } from "@/types/type";
@@ -37,6 +38,8 @@ const Payment = ({
   email,
   amount,
   driverId,
+  driverName,
+  driverAvatar,
   rideTime,
 }: PaymentProps) => {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
@@ -71,7 +74,7 @@ const Payment = ({
       throw new Error("Missing required ride details.");
     }
 
-    await fetchAPI("/(api)/(ride)/create", {
+    const response = await fetchAPI("/(api)/(ride)/create", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -90,6 +93,13 @@ const Payment = ({
         user_id: userId,
       }),
     });
+
+    return response?.data as
+      | {
+          ride_id?: number;
+          created_at?: string;
+        }
+      | undefined;
   };
 
   const initializePaymentSheet = async () => {
@@ -192,7 +202,31 @@ const Payment = ({
         return;
       }
 
-      await createRide();
+      const createdRide = await createRide();
+
+      if (createdRide?.ride_id && userId) {
+        try {
+          await createRideChatRoom({
+            rideId: createdRide.ride_id,
+            rider: {
+              id: userId,
+              name: fullName || (email ? email.split("@")[0] : "MoveO Rider"),
+              email,
+            },
+            driverId,
+            driverName,
+            driverAvatar,
+            originAddress: userAddress,
+            destinationAddress: destinationAddress,
+            createdAtMs: createdRide.created_at
+              ? new Date(createdRide.created_at).getTime()
+              : Date.now(),
+          });
+        } catch (chatError) {
+          console.error("Unable to create ride chat:", chatError);
+        }
+      }
+
       setSuccess(true);
     } catch (error) {
       Alert.alert(
