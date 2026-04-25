@@ -1,4 +1,5 @@
 import {neon} from "@neondatabase/serverless";
+import { createChatRoom } from "@/lib/chat";
 
 export async function POST(request: Request) {
     try {
@@ -67,7 +68,16 @@ export async function POST(request: Request) {
         RETURNING *;
         `;
 
-        return Response.json({data: response[0]}, {status: 201});
+        const ride = response[0];
+
+        // Create chat room for this ride
+        await createChatRoom(
+            ride.id,
+            user_id,
+            driver_id
+        );
+
+        return Response.json({data: ride}, {status: 201});
     } catch (error) {
         console.error("Error inserting data into recent_rides:", error);
         return Response.json({error: "Internal Server Error"}, {status: 500});
