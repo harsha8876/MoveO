@@ -96,9 +96,9 @@ const Payment = ({
 
     return response?.data as
       | {
-          ride_id?: number;
-          created_at?: string;
-        }
+        ride_id?: number;
+        created_at?: string;
+      }
       | undefined;
   };
 
@@ -120,8 +120,8 @@ const Payment = ({
         Alert.alert(
           "Payment setup failed",
           response.details ||
-            response.error ||
-            "Unable to create payment sheet.",
+          response.error ||
+          "Unable to create payment sheet.",
         );
         return false;
       }
@@ -225,6 +225,20 @@ const Payment = ({
         } catch (chatError) {
           console.error("Unable to create ride chat:", chatError);
         }
+
+        // Fire AI driver's first greeting (don't block UI on it)
+        fetchAPI("/(api)/(chat)/greet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rideId: createdRide.ride_id,
+            driverId,
+            driverName,
+            riderName: fullName || "Rider",
+            originAddress: userAddress,
+            destinationAddress,
+          }),
+        }).catch((e) => console.warn("Greet failed:", e));
       }
 
       setSuccess(true);

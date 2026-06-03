@@ -53,6 +53,7 @@ const Layout = () => {
         tabBarShowLabel: false,
         tabBarActiveTintColor: "#FFFFFF",
         tabBarInactiveTintColor: "#747490",
+        lazy: true,
         
         tabBarStyle: {
           backgroundColor: "#B9B9C7",

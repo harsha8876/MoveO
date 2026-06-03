@@ -26,11 +26,15 @@ const missingFirebaseKeys = Object.entries(firebaseConfig)
   .map(([key]) => key);
 
 if (missingFirebaseKeys.length) {
-  throw new Error(
-    `Missing Firebase config values: ${missingFirebaseKeys.join(", ")}`,
+  console.warn(
+    `[Firebase] Missing config values: ${missingFirebaseKeys.join(", ")}. Chat features will be unavailable.`,
   );
 }
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const app = missingFirebaseKeys.length
+  ? null
+  : getApps().length
+    ? getApp()
+    : initializeApp(firebaseConfig);
 
-export const db = getFirestore(app);
+export const db = app ? getFirestore(app) : (null as any);

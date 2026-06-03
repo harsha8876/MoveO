@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export const fetchAPI = async (url: string, options?: RequestInit) => {
   try {
@@ -27,20 +27,22 @@ export const useFetch = <T>(url: string, options?: RequestInit) => {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const result = await fetchAPI(url, options);
+      const result = await fetchAPI(url, optionsRef.current);
       setData(result.data);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [url, options]);
+  }, [url]);
 
   useEffect(() => {
     fetchData();

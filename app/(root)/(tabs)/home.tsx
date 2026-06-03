@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useClerk, useUser } from "@clerk/expo";
 import * as Location from "expo-location";
-import { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GoogleTextInput from "@/components/GoogleTextInput";
-import Map from "@/components/Map";
+const LazyMap = React.lazy(() => import("@/components/Map"));
 import RideCard from "../../../components/RideCard";
 import { fetchAPI } from "@/lib/fetch";
 import {
@@ -240,7 +240,13 @@ export default function HomePage() {
                 </View>
               ) : (
                 <View className="h-52 overflow-hidden rounded-[28px]">
-                  <Map />
+                  <Suspense fallback={
+                    <View className="flex-1 items-center justify-center">
+                      <ActivityIndicator size="small" color="#5D5D7D" />
+                    </View>
+                  }>
+                    <LazyMap />
+                  </Suspense>
                 </View>
               )}
               <View className="mt-3 flex-row items-center justify-between px-1">
