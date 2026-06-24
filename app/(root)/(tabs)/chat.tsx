@@ -1,7 +1,7 @@
 import { useUser } from "@clerk/expo";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -473,7 +473,7 @@ const ChatView = ({
     return () => cancelAnimationFrame(frame);
   }, [listItems.length]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     const text = draft.trim();
     if (!text || isSending) return;
     setIsSending(true);
@@ -496,9 +496,9 @@ const ChatView = ({
     } finally {
       setIsSending(false);
     }
-  };
+  }, [draft, isSending, ride.ride_id, userId]);
 
-  const renderItem = ({ item }: { item: ListItem }) => {
+  const renderItem = useCallback(({ item }: { item: ListItem }) => {
     if (item.type === "sep") return <DateSeparator label={item.label} />;
     if (item.type === "typing") {
       return (
@@ -517,7 +517,7 @@ const ChatView = ({
         driverColor={driverColor}
       />
     );
-  };
+  }, [userId, driverInitials, driverColor, isSending]);
 
   return (
     <KeyboardAvoidingView
@@ -661,6 +661,10 @@ const ChatView = ({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingTop: 8, paddingBottom: 8 }}
           style={{ backgroundColor: "#F7F7FC" }}
+          removeClippedSubviews
+          initialNumToRender={20}
+          maxToRenderPerBatch={10}
+          windowSize={10}
           renderItem={renderItem}
         />
       )}
@@ -711,7 +715,7 @@ const ChatView = ({
         />
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => { void handleSend(); }}
+          onPress={handleSend}
           disabled={!draft.trim() || isSending}
           style={{
             marginLeft: 10,

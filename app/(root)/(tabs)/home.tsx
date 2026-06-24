@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useClerk, useUser } from "@clerk/expo";
 import * as Location from "expo-location";
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -38,14 +38,14 @@ export default function HomePage() {
     setDestinationLocation,
   } = useLocationStore();
 
-  const handleDestinationPress = (location: {
+  const handleDestinationPress = useCallback((location: {
     latitude: number;
     longitude: number;
     address: string;
   }) => {
     setDestinationLocation(location);
     router.push("/(root)/find-ride");
-  };
+  }, [setDestinationLocation]);
 
   useEffect(() => {
     let isActive = true;
@@ -118,19 +118,30 @@ export default function HomePage() {
     requestLocation();
   }, [setUserLocation]);
 
-  const emailPrefix =
-    user?.primaryEmailAddress?.emailAddress?.split("@")[0] || "traveler";
-  const firstName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
-  const paidRides = recentRides.filter(
-    (ride) => ride.payment_status === "paid",
+  const firstName = useMemo(() => {
+    const emailPrefix =
+      user?.primaryEmailAddress?.emailAddress?.split("@")[0] || "traveler";
+    return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+  }, [user?.primaryEmailAddress?.emailAddress]);
+
+  const paidRides = useMemo(
+    () => recentRides.filter((ride) => ride.payment_status === "paid"),
+    [recentRides],
   );
-  const totalSpent = paidRides.reduce(
-    (sum, ride) => sum + Number(ride.fare_price ?? 0),
-    0,
+
+  const totalSpent = useMemo(
+    () => paidRides.reduce((sum, ride) => sum + Number(ride.fare_price ?? 0), 0),
+    [paidRides],
   );
-  const totalRideMinutes = recentRides.reduce(
-    (sum, ride) => sum + Number(ride.ride_time ?? 0),
-    0,
+
+  const totalRideMinutes = useMemo(
+    () => recentRides.reduce((sum, ride) => sum + Number(ride.ride_time ?? 0), 0),
+    [recentRides],
+  );
+
+  const renderRideCard = useCallback(
+    ({ item }: { item: Ride }) => <RideCard ride={item} />,
+    [],
   );
 
   return (
@@ -373,7 +384,11 @@ export default function HomePage() {
             </View>
           )
         }
-        renderItem={({ item }) => <RideCard ride={item} />}
+        renderItem={renderRideCard}
+        removeClippedSubviews
+        initialNumToRender={3}
+        maxToRenderPerBatch={3}
+        windowSize={5}
       />
     </SafeAreaView>
   );
